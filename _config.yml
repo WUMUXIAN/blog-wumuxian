@@ -12,7 +12,7 @@ timezone: Asia/Singapore
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
-url: http://wumuxian1988.com
+url: http://blog.wumuxian1988.com
 root: /
 permalink: :year/:month/:day/:title/
 permalink_defaults:
@@ -71,4 +71,10 @@ disqus_shortname: muxianwu
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html
 deploy:
-  type:
+  type: rsync
+  host: mosscube.com
+  user: root
+  root: /home/mosscubesite/blog
+  delete: true
+  verbose: true
+  ignore_errors: false
