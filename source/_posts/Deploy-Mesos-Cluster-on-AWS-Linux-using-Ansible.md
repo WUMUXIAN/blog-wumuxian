@@ -66,7 +66,7 @@ Now let's get our hands dirty. Actually there're many other formal open sourced 
 - [Playa Mesos](https://github.com/mesosphere/playa-mesos) for deploying mesos on ubuntu. 
 - [DC/OS](https://dcos.io/) for deploying mesos on coreos.
 
-However, there isn't a tool that caters for AWS Linux AMI. AWS Linux is based on centos 6 but highly customized, optimized and mantained by AWS. Personally I feel it the best within the AWS world, thus it's always my first choice when firing up EC2 instances. So here comes the problem, all the existing tools doesn't work straightforward for it. I chose to do it on my own using [Ansible](https://www.ansible.com/), an IT automation tool that can be used to provision infrasturces.If you don't know about Ansible yet, please check https://www.ansible.com/ and get farmilar with it first. Though it's not necessary to get this running. The code is open sourced on github at http://github.com, and there's no other dependency but git and ansible. Make sure you have them installed on your working machine.
+However, there isn't a tool that caters for AWS Linux AMI. AWS Linux is based on centos 6 but highly customized, optimized and mantained by AWS. Personally I feel it the best within the AWS world, thus it's always my first choice when firing up EC2 instances. So here comes the problem, all the existing tools doesn't work straightforward for it. I chose to do it on my own using [Ansible](https://www.ansible.com/), an IT automation tool that can be used to provision infrasturces.If you don't know about Ansible yet, please check https://www.ansible.com/ and get farmilar with it first， though it's not necessary to get this running. The code for this article is open sourced on github at https://github.com/WUMUXIAN/microservices-infra, and there's no other dependency but git and ansible. Make sure you have them installed on your working machine.
 
 ### Let's get started
 
@@ -74,8 +74,8 @@ The first step would be getting the instances up and ready, to fully automate th
 
 **Step One:** Check out the code
 ```bash
-git clone "abc"
-cd abc/
+git clone https://github.com/WUMUXIAN/microservices-infra.git
+cd microservices-infra/aws
 ```
 
 **Step Two:** Modify the **inventory** file located in the folder according to your instances allocations.
@@ -100,19 +100,89 @@ mesos-slave
 private_ipv4: xx.xx.xx.xx
 ```
 
-**Step Four:** Copy your pem key file to the directory and rename it to **key.pem**, or you can leave your name and modify the **ansible.cfg** file to change the **private_key_file** to the path of your key file.
+**Step Four:** Copy your pem key file to the directory and rename it to **key.pem**.
 
 **Step Five:** Run the deployment:
 ```bash
 ansible-playbook -v mesos.yml
 ```
 
-The provisioning will take a few minutes to finish depending on how many machines you're provisioning. When ansible finishes, you will have a full mesos cluster up and running with Marathon and Chronos frameworks installed. Access the web UIs to verify and play with it:
+**Optional**: Make your working machine access the nodes easier by registering hosts and configure ssh.
+```bash
+ansible-playbook -v --ask-become-pass -e user_name=$(whoami) local.yml
+```
+
+The provisioning will take a few minutes to finish depending on how many machines you're provisioning. When ansible finishes, you will have a full mesos cluster up and running with Marathon and Chronos frameworks installed. Access the web UIs to verify and play with it, note that you have to open these ports in your security group before you can access:
 - Mesos: http://mesos-master1:5050
 - Marathon: http://mesos-master1:8080
-- Chronos: http://mesos-master1:8081
+
+### Reveal the dirty work
+
+#### The mesos.yml playbook
+```
+---
+
+- hosts: all
+  gather_facts: yes
+  roles:
+    - common
+    - docker
+
+- hosts: mesos-master
+  vars:
+    mesos_mode: master
+  roles:
+    - zookeeper
+    - mesos
+    - marathon
+
+- hosts: mesos-slave
+  vars:
+    mesos_mode: slave
+  roles:
+    - mesos
+```
+The ansible playbook scripts are organized by roles, we play the common and docker role on all nodes, play zookeeper, mesos and marathon role on master nodes and play only mesos role on mesos slaves. We also set the variable mesos_mode respective, which will be used within the mesos role to distingish mesos master and mesos slave.
+
+#### The common role
+This role does the following things:
+1. Configure the system (time, yum timeout, yum repo, firewalls, ulimit and etc)
+2. Install necessary softwares (java, supervisor, utilities softwares)
+3. Configured syslog for mesos.
+
+#### The docker role
+This role installs docker and configure it. Because AWS Linux is based on centos 6, and the docker supports only up to 1.7 on centor 7. I have to use a workaroud to install docker 1.9.0 by replacing the binary. (1.9.0 above is required for some advanced features such as networking)
+```
+- name: download docker 1.9.0 and replace 1.7.1
+  become: yes
+  become_method: sudo
+  get_url: url=https://get.docker.com/builds/Linux/x86_64/docker-1.9.0 dest=/usr/bin/docker force=yes
+  tags:
+    - docker
+```
+#### The zookeeper role
+Zookeeper is used to make the cluster HA, Mesos uses it for leader election and state caching. Configure the zookeeper like this:
+```
+maxClientCnxns=200
+tickTime=2000
+initLimit=100
+syncLimit=5
+dataDir=/var/lib/zookeeper
+clientPort=2181
+{% for host in groups['mesos-master'] %}
+server.{{ loop.index }}={{ hostvars[host].private_ipv4 }}:2888:3888
+{% endfor %}
+```
+
+#### The mesos role
+This role installs mesos master or mesos slave on the nodes, depending on the variable mesos_mode, because I have 3 masters, I set the quorum to 2 to have the best HA. For the slaves I do the following things:
+1. Add attributes slave-x for future use.
+2. Added docker to the containerizers.
+3. Customize resoucres to have a wider range of ports
+
+The above is only to highlight some key points of the playbook, I can't go through every insides. You can always look into the source code for details and play with it as you like.
 
 ### Conclusion
 
-This articles give a short introduction to Mesos Cluster and aims to provide a workable deployment solution for those who wants to deploy mesos to EC2 instances running with AWS Linux AMI. If you find any problems or you have any recommendations to improve things, please feel free to contact, my email is at the bottom of this page.
+This articles give a short introduction to Mesos Cluster and aims to provide a workable deployment solution for those who wants to deploy mesos to EC2 instances running with AWS Linux AMI. If you find any errors or you have any recommendations to improve things, please feel free to contact, my email is at the bottom of this page.
 
