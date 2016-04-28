@@ -24,7 +24,7 @@ The above is how the mesos website describes it. Mesos is all about resource abs
 
 The figure below shows the architecture of an full mesos cluster. 
 
-{% asset_img architecture.jpg The mesos cluster architecture %}
+![The mesos cluster architecture](architecture.jpg)
 
 Mesos runs with master/slave paradigm, masters act as schedulers and slaves act as executors. Zookeeper is used to do leader election and save the state to achieve fault tolerant and high availablility. 
 
