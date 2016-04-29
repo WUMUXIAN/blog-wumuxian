@@ -154,6 +154,43 @@ weave expose net:10.32.1.0/24
 ![](mesos_task_chronos.png)
 ![](mesos_framework_chronos.png)
 
+## Restart Marathon managed Chronos framework properly
+To do a simple restart, you only need to destroy the marathon app and restart it after, in this way the framework and all the jobs you created in chronos will remain the same. However, sometime things may screw up and you want to purge the framework as well as the jobs, in this case, you'll have to tell mesos to teardown the framework and tell zookeeper to remove all chronos records.
+
+To cut the story short, the following is the script I wrote to restart chronos framework.
+```bash
+#!/bin/bash
+
+cd ..
+if [[ $# == 0 ]]; then
+    echo "Usage:
+            . restart_chronos.sh --maintain                Restart chronos with the jobs maintained
+            . restart_chronos.sh --purge framework_id      Restart chronos as a new framework with the jobs purged"
+else
+    ansible mesos-master1 -m pip -b -a "executable=/usr/local/bin/pip name=httplib2 state=present"
+    ansible mesos-master1 -m uri -b -a "url=http://localhost:8080/v2/apps/chronos method=DELETE HEADER_Content-Type='application/json'"
+    if [[ $# == 2 ]] && [[ "$1" == "--purge" ]]; then
+	    postBody=`echo frameworkId=$2`
+	    echo $postBody
+        ansible mesos-master1 -m command -b -a "/usr/lib/zookeeper/bin/zkCli.sh rmr /chronos"
+        ansible mesos-master1 -m uri -b -a "body='$postBody' method=POST url=http://leader.mesos.service.consul:5050/master/teardown"
+    fi
+	ansible-playbook -vv infra.yml --tags "chronos"
+fi
+cd bin
+```
+So you run with maintain mode to restart it without affecting anything
+```bash
+cd bin/
+. restart_chronos.sh --maintain
+```
+
+or you run with purge mode to purge everything and start freshly
+```bash
+cd bin/
+. restart_chronos.sh --purge framework_id
+```
+
 ## What's next
 Now we're able to deploy chronos through Marathon by enabling multi-host container networking on the mesos cluster using Weave, but it's not the end of the story yet. You will find out that you can't access chronos by the host name displayed in the framework page, because it's an internal address in the weave's virtual network. Also each chronos container is exposed on a different port, which is dynamic, it's very troublesome to access. Actually this exposes a general problem faced by any apps deployed through Marathon: you have a persistent domain to access the apps and be able to load balance the traffic, and this calls for a reverse proxy and load balancing tool to sit in the front. 
 
