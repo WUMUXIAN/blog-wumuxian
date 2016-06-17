@@ -1,8 +1,12 @@
 ---
 title: CPU and Memory Resources in Mesos Marathon with Docker
 date: 2016-05-24 17:34:18
-tags: Marathon, Mesos, Docker
-category: Infrastructure
+tags: 
+  - Marathon
+  - Mesos
+  - Docker
+category: 
+  - Infrastructure
 ---
 
 I've been using Marathon for some time, running different dockerized apps managed by marathon on Mesos. But I has always been very uncertain about one thing, which is:

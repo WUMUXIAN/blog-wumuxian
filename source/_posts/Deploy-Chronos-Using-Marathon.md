@@ -1,8 +1,14 @@
 ---
 title: Deploy Chronos using Marathon to achieve HA
 date: 2016-04-28 22:10:18
-tags: Chronos, Marathon, Mesos, Docker, Multi-Host Container Networking
-category: DevOps, Infrastructure 
+tags: 
+  - Chronos
+  - Marathon
+  - Mesos
+  - Docker
+  - Multi-Host Container Networking
+category: 
+  - DevOps
 ---
 
 Chronos is a a mesos framework, which considered a distributed version of cron. It's a fault tolerant job scheduler that supports chained jobs (job dependent on another job/jobs), it supports ISO8601 based schedules.

@@ -1,8 +1,17 @@
 ---
 title: Create VPC environment using Terraform on AWS 
 date: 2016-05-31 21:56:57
-tags: VPC, Terraform, AWS, Subnet, Internet Gateway, NAT Gateway, Route Table, Security Group
-category: Infrastructure, Security
+tags: 
+  - VPC
+  - Terraform
+  - AWS
+  - Subnet
+  - Internet Gateway
+  - NAT Gateway
+  - Route Table
+  - Security Group
+category: 
+  - Infrastructure
 ---
 
 It's a common practice to create a VPC to provide logically isolated section of the cloud and the freedom of creating IP address range, subnets, route tables and network gateways. It brings flexibility of access control and multiple layers of security. But it's a non-trivial task to create the VPC environment using the AWS Web Interface, you have to click here and there, jumping from page to page, and it's not replayable and portable, e.g. if you want to replicate one setup, or you want to have the same configuration in another AWS account, you gotta have to re-do it all over again. 

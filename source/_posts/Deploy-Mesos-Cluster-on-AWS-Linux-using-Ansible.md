@@ -1,8 +1,12 @@
 ---
 title: Getting Started with Mesos on AWS Linux AMI instances with Ansible
 date: 2016-04-25 11:45:36
-tags: Mesos, Ansible, AWS Linux AMI
-category: DevOps, Infrastructure
+tags: 
+  - Mesos
+  - Ansible 
+  - AWS Linux AMI
+category: 
+  - Infrastructure
 ---
 
 I've been trying to use Mesos for a while since I first heard of it from my friend. As a beginner of using it myself, I hope this article can help those who are new to mesos but interested to get started with it on AWS cloud. I will cover the following two topics in this article.

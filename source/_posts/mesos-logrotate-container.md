@@ -1,8 +1,12 @@
 ---
 title: Setup Mesos to rotate containers' stdout/stderr logs
 date: 2016-05-25 14:19:43
-tags: Mesos, Docker, Logging
-category: Infrastructure
+tags: 
+  - Mesos
+  - Docker
+  - Logging
+category: 
+  - Infrastructure
 ---
 
 ## The problem I'm facing

@@ -1,8 +1,11 @@
 ---
 title: Change Open File Limit on MacOS
 date: 2016-05-24 10:18:22
-tags: MacOS, Open File Limit
-category: Infrastructure
+tags: 
+  - MacOS
+  - Open File Limit
+category: 
+  - Infrastructure
 ---
 
 OSX has a very low limit on the maximum number of open files. It causes problem now and then if you're doing development and use load testing tools. To address the problem you can change the open file limit by doing the following:
