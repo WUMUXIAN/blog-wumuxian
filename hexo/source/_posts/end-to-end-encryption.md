@@ -46,3 +46,21 @@ This looks just nice right, we have meet all of our requirements securely. Howev
 
 As we can see using these algorithms along won't lead us to the goal, however combining them together will just solve the problem nicely.
 
+1. We create a file key to encrypt the file using symmetric encryption.
+2. We encrypt this file key using the public key.
+
+Now this user will be able to decrypt the file later and also give access to other users easily.
+
+1. User A want to give access to User B for his file.
+2. Sever will send the encrypted key and User B's public key to User A.
+3. User A will decrypt the encrypted file key and encrypt it with User B's public key.
+4. User A upload the copy of file key which is encrypted with User B's public key.
+5. User B will now have access to the key.
+
+This hybrid method utilizes the strengths of both algorithms and avoid the weakness of them. 
+
+### Conclusion
+
+As discussed above, by combining the symmetric and asymmetric encryptions we are able to design an end-to-end encryption for a cloud storage application that supports large files and sharing. Everything is in theory for now and next we will going to do some real work to POC the idea, this involves selecting of the proper algorithms and implementing them properly.
+
+
