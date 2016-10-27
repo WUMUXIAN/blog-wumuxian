@@ -10,6 +10,8 @@ category:
 
 This article introduces how to set up a SoftEther VPN server on AWS EC2 instance that resides in a public subnet of a AWS VPC and how to set up VPN client on Mac OS to make VPN connection, which enables the client to access the private instances located within the private subnets of the same VPC using their private IP as if they're in the same local network.
 
+![AWS VPC with VPN connection](vpc_vpn.png)
+
 ## Why Use SoftEther VPN
 
 SoftEther VPN is one of the most powerful and easit VPN software. It's free and open sources, developed in University of Tsukuba, Japan. 
