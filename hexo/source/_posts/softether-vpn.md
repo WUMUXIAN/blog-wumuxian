@@ -355,6 +355,8 @@ Add a user with password authentication (you can also add other types of authent
 
 Now we have the VPN server up and running, and we have configured it to accept connections from a VPN client. We also created a user that are allowed to connect to the VPN. The next step is to test the connection to the VPN using a VPN client. 
 
+#### Connect using L2TP/IPsec protocol
+
 Mac has a built-in support to IPsec/L2TP VPN so we don't need to install anything else but just do a few configurations to get it to work.
 
 * Open System Preferences -> Network -> +:
@@ -398,6 +400,66 @@ PING 10.10.30.92 (10.10.30.92): 56 data bytes
 3 packets transmitted, 3 packets received, 0.0% packet loss
 round-trip min/avg/max/stddev = 245.143/245.224/245.371/0.104 ms
 ```
+
+#### Connect using OpenVPN protocol
+
+SoftEther VPN supports OpenVPN as well, we just need to enable it using the VPN Server Manager:
+
+![OpenVPN Support](enableopenvpn0.jpg)
+
+Tick *Enable the OpenVPN Clone Server Function*, set your desired port and client OK.
+
+![OpenVPN Support](enableopenvpn1.jpg)
+
+Mac doesn't have a native support for OpenVPN protocol, but a free client called Tunnelblick is available [here](https://tunnelblick.net/index.html). Download and install the app and open it with a new configuration with the following content:
+
+```bash
+dev tun
+proto udp
+remote vpn_server_address 1194
+route-nopull
+route 10.10.0.0 255.255.0.0
+cipher AES-128-CBC
+auth SHA1
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+mute-replay-warnings
+client
+auth-nocache
+verb 3
+auth-user-pass
+
+<ca>
+-----BEGIN CERTIFICATE-----
+your ca cert
+-----END CERTIFICATE-----
+
+</ca>
+
+<cert>
+-----BEGIN CERTIFICATE-----
+your cert
+-----END CERTIFICATE-----
+
+</cert>
+
+<key>
+-----BEGIN PRIVATE KEY-----
+your private key
+-----END PRIVATE KEY-----
+
+</key>
+```
+
+The *route-nopull* is used to prevent the server to push "redirect-gateway def1" to client, as it will lead to problems for DNS resolving. The *route 10.10.0.0 255.255.0.0* is used to route requests from 10.10.0.0 to the VPN. You can get the content of the certs and keys from the VPN Server Manager at:
+
+![OpenVPN Support](enableopenvpn2.jpg)
+
+Once you opened the configuration with Tunnelblick, you can now connect to the VPN.
+
+![OpenVPN Support](enableopenvpn3.jpg)
 
 ## Conclusion
 
