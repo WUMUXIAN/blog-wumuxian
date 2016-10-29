@@ -20,7 +20,7 @@ Nagivate to your slack team management page and add a webhook, you will get a UR
 I use GO to implement the code. The logic is pretty simple. I used a few libraries to achieve it.
 
 1. github.com/robfig/cron. A cron library in GO, which helps to schdule the messages.
-2. https://github.com/aws/aws-sdk-go. AWS SDK in GO, which is used to retrieve information from your AWS account.
+2. github.com/aws/aws-sdk-go. AWS SDK in GO, which is used to retrieve information from your AWS account.
 
 #### Set up IAM role or user
 
@@ -81,7 +81,7 @@ estimatedCost <- result.Datapoints[0].Maximum
 
 Use AWS describe instance API to get the instances information and get the count of it.
 
-```
+```go
 sess := session.New(&aws.Config{Region: aws.String("us-east-1")})
 
 svc := ec2.New(sess)
