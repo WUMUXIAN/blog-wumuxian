@@ -1,6 +1,6 @@
 runtime: nodejs
 env: flex
-service: mx-blog
+service: default
 skip_files: hexo/*
 automatic_scaling:
   min_num_instances: 1
