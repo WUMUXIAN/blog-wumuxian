@@ -1,3 +1,5 @@
+ls ~
+cd /opt/app-root/src
 npm install
 cd hexo
 npm install
