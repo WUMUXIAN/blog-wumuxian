@@ -1,7 +1,7 @@
 ls ~
 cd /opt/app-root/src
 npm install
-cd hexo
+cd /opt/app-root/src/hexo
 npm install
 sh publish.sh
 
