@@ -1,0 +1,6 @@
+npm install
+cd hexo
+npm install
+sh publish.sh
+
+
