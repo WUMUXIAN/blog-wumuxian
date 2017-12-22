@@ -1,9 +1,7 @@
 #!/bin/bash
-
-echo `ls ~`
-cd /opt/app-root/src
+mv /tmp/s2i/src $HOME/src
 npm install
-cd /opt/app-root/src/hexo
+cd hexo
 npm install
 sh publish.sh
 
