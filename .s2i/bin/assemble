@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo ~
+echo `ls ~`
 cd /opt/app-root/src
 npm install
 cd /opt/app-root/src/hexo
