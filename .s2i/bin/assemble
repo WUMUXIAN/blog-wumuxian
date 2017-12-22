@@ -4,6 +4,8 @@ cp -Rf /tmp/src/. ./
 npm install
 cd hexo
 npm install
-sh publish.sh
+node_modules/hexo/bin/hexo generate
+cp -rf public ../
+cd ..
 
 
