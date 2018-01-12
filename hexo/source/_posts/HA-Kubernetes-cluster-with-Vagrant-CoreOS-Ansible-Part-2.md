@@ -200,4 +200,4 @@ df080e92bbe6d38: name=master02 peerURLs=https://172.17.5.102:2380 clientURLs=htt
 b25cf09cad535601: name=master03 peerURLs=https://172.17.5.103:2380 clientURLs=https://172.17.5.103:2379 isLeader=false
 ```
 
-By now the etcd cluster is up and running. In the [next part](http://blog.wumuxian1988.com/2017/12/21/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-3/), we'll write an Ansible role to configure and run `kubelet` on all nodes.
+By now the etcd cluster is up and running. In the [next part](http://blog.wumuxian1988.com/2018/01/12/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-3/), we'll write an Ansible role to configure and run `kubelet` on all nodes.

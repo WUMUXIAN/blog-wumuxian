@@ -287,4 +287,4 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
   master03                   : ok=7    changed=6    unreachable=0    failed=0
   ```
 
-By now we've got three master nodes running with python and pip installed. This makes Ansible usable on CoreOS, we will start to use Ansible to provision components on these masters. In [part2](http://blog.wumuxian1988.com/2017/12/21/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-2/) I'll setup `etcd` and `flannel`.
+By now we've got three master nodes running with python and pip installed. This makes Ansible usable on CoreOS, we will start to use Ansible to provision components on these masters. In [part2](http://blog.wumuxian1988.com/2018/01/10/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-2/) I'll setup `etcd` and `flannel`.
