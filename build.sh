@@ -1,3 +1,5 @@
 #!/bin/bash
-
-docker build -t wumuxian:blog .
+cd hexo
+sh publish.sh
+cd ..
+docker build -t wumuxian/blog .
