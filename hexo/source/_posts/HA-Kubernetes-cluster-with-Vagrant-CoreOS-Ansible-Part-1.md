@@ -19,7 +19,7 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
 ## What you need before you get started
 * Vagrant >= 2.0.1
 * VirtualBox >= 5.0.0
-* Ansible >= 2.0.0
+* Ansible >= 2.3.0
 * container-linux-config-transpiler >= v0.5.0
 
 ## Let's rock it.
@@ -141,7 +141,14 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
   In order to run this, we need to prepare the ignition file in the specified folder.
   ```bash
   mkdir provisioning
-  touch node.clc
+  cat > node.clc <<EOF
+  systemd:
+  units:
+    - name: locksmithd.service
+      mask: true
+    - name: update-engine.service
+      mask: true
+  EOF
   ```
 
   For now we don't do anything but just keep it empty. Convert it into an ignition file so that vagrant ignition plugin can read by running:
@@ -149,7 +156,8 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
   ct -pretty -platform vagrant-virtualbox < node.clc > node.ign
   ```
 
-  Due to the nature of CoreOS container linux, we can't use Ansible to provision it by default because Ansible requires the target machine to have python installed to work. In order to solve this problem, we have to install `pypy` first. Let's create the `playbook.yml`:
+  This ignition configuration will permanently disable the auto-update and rebooting of the container linux for us.
+  Up to this point we are able to create container linux masters, however we can't use Ansible to provision it yet because Ansible requires the target machine to have python installed to work and container linux doesn't come with python natively due to its nature of having only components needed to run containers. In order to solve this problem, we have to install `pypy` first taking advantage of Ansible's `raw` module (module that doesn't require python). Let's create the `playbook.yml`:
 
   ```
   ####################################

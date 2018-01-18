@@ -6,7 +6,7 @@ tags:
  - AWS
  - Bot
 category:
- - Devops
+ - DevOps
 ---
 
 Usually when you're using AWS's services, you might want to know the usage of your resources, e.g. number of running instances, estimated cost and etc. Taking advatange of Slack's webhook and AWS Service API, we can create a bot that sends AWS usage report to your slack channel periodically. This article introduces how it's achieved.
@@ -24,7 +24,7 @@ I use GO to implement the code. The logic is pretty simple. I used a few librari
 
 #### Set up IAM role or user
 
-There two methods of granting your application to read access to your AWS account. The first method is to use IAM role, which is attached to your AWS EC2 instance, if you're deploying the bot on a EC2 instance, this is the recommended method. The second methos is to use IAM user, you can create a user and get it's credentials and set up your environment properly by using *awscli* or set the credentials in your code directly. If you set it in your code, you need to be very careful because it's possible that it will get leaked. 
+There two methods of granting your application to read access to your AWS account. The first method is to use IAM role, which is attached to your AWS EC2 instance, if you're deploying the bot on a EC2 instance, this is the recommended method. The second methos is to use IAM user, you can create a user and get it's credentials and set up your environment properly by using *awscli* or set the credentials in your code directly. If you set it in your code, you need to be very careful because it's possible that it will get leaked.
 
 #### Get estimated cost
 
