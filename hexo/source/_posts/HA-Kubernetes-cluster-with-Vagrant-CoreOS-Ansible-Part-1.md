@@ -11,10 +11,10 @@ category:
 ---
 
 Kubernetes is a production level containers orchestration tool that helps to automating deployment, scaling and manage your containers. The official recommended way of running a local Kubernetes cluster is to use `minikube`, it is the easiest way to get started. However the shortage of this is very obvious.
-  1.  You can't emulate a HA cluster as `minikube` setup a single node environment.
+  1.  You can't emulate a HA cluster as `minikube` setups a single node environment.
   2.  The details of how the Kubernetes cluster runs are pretty much shadowed, you don't get the chance to build it step by step, and understand what are the building blocks and how they work together to form the cluster.
 
-This post tries to build a Kubernetes cluster from scratch to achieve a minimum HA setup with N CoreOS virtual machines.
+This post tries to build a Kubernetes cluster from scratch to achieve a minimum HA setup with 4 CoreOS virtual machines, 3 masters and 1 workers
 
 ## What you need before you get started
 * Vagrant >= 2.0.1
@@ -35,11 +35,8 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
   vagrant init
   ```
 
-3. We start with creating the master nodes.
+3. We start with creating the nodes with coreOS.
   ```ruby
-  # -*- mode: ruby -*-
-  # # vi: set ft=ruby :
-
   Vagrant.require_version ">= 1.9.7"
 
   # Make sure the vagrant-ignition plugin is installed
@@ -55,11 +52,13 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
     end
   end
 
-  $master_vm_memory = 2048
+  $vm_memory = 1024
   $master_ip_start = "172.17.5.10"
+  $worker_ip_start = "172.17.5.20"
 
   BOX_VERSION = ENV["BOX_VERSION"] || "1465.3.0"
   MASTER_COUNT = ENV["MASTER_COUNT"] || 3
+  WORKER_COUNT = ENV["WORKER_COUNT"] || 1
   IGNITION_PATH = File.expand_path("./provisioning/node.ign")
 
   Vagrant.configure("2") do |config|
@@ -86,18 +85,56 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
       vb.gui = false
     end
 
-    hostvars, masters = {}, []
+    hostvars, masters, workers = {}, [], []
+
+    # Create the worker nodes.
+    (1..WORKER_COUNT).each do |w|
+      # Set the host name and ip
+      worker_name = "worker0#{w}"
+      worker_ip = $worker_ip_start + "#{w}"
+
+      config.vm.define worker_name do |worker|
+        worker.vm.hostname = worker_name
+        worker.vm.provider :virtualbox do |vb|
+          vb.memory = $vm_memory
+          worker.ignition.enabled = true
+        end
+
+        # Set the private ip.
+        worker.vm.network :private_network, ip: worker_ip
+        worker.ignition.ip = worker_ip
+
+        # Set the ignition data.
+        worker.vm.provider :virtualbox do |vb|
+          worker.ignition.hostname = "#{worker_name}.tdskubes.com"
+          worker.ignition.drive_root = "provisioning"
+          worker.ignition.drive_name = "config-worker-#{w}"
+          worker.ignition.path = IGNITION_PATH
+        end
+        workers << worker_name
+        worker_hostvars = {
+          worker_name => {
+            "ansible_python_interpreter" => "/home/core/bin/python",
+            "private_ipv4" => worker_ip,
+            "public_ipv4" => worker_ip,
+            "role" => "worker",
+          }
+        }
+        hostvars.merge!(worker_hostvars)
+      end
+    end
 
     # Create the master nodes.
     (1..MASTER_COUNT).each do |m|
       # Set the host name and ip
       master_name = "master0#{m}"
       master_ip = $master_ip_start + "#{m}"
+      last = (m >= MASTER_COUNT)
 
-      config.vm.define master_name do |master|
+      config.vm.define master_name, primary: last do |master|
         master.vm.hostname = master_name
         master.vm.provider :virtualbox do |vb|
-          vb.memory = $master_vm_memory
+          vb.memory = $vm_memory
           master.ignition.enabled = true
         end
 
@@ -122,17 +159,22 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
           }
         }
         hostvars.merge!(master_hostvars)
-      end
-    end
 
-    # Provision
-    config.vm.provision :ansible do |ansible|
-      ansible.groups = {
-        "role=master": masters,
-        "all": masters,
-      }
-      ansible.host_vars = hostvars
-      ansible.playbook = "provisioning/playbook.yml"
+        # Provision only when all machines are up and running.
+        if last
+          config.vm.provision :ansible do |ansible|
+            ansible.groups = {
+              "role=master": masters,
+              "role=worker": workers,
+              "all": masters + workers,
+            }
+            ansible.host_vars = hostvars
+            # this will force the provision to happen on all machines to achieve parallel provisioning.
+            ansible.limit = "all"
+            ansible.playbook = "provisioning/playbook.yml"
+          end
+        end
+      end
     end
   end
 
@@ -149,15 +191,11 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
     - name: update-engine.service
       mask: true
   EOF
-  ```
-
-  For now we don't do anything but just keep it empty. Convert it into an ignition file so that vagrant ignition plugin can read by running:
-  ```bash
   ct -pretty -platform vagrant-virtualbox < node.clc > node.ign
   ```
 
   This ignition configuration will permanently disable the auto-update and rebooting of the container linux for us.
-  Up to this point we are able to create container linux masters, however we can't use Ansible to provision it yet because Ansible requires the target machine to have python installed to work and container linux doesn't come with python natively due to its nature of having only components needed to run containers. In order to solve this problem, we have to install `pypy` first taking advantage of Ansible's `raw` module (module that doesn't require python). Let's create the `playbook.yml`:
+  Up to this point we are able to create container linux masters, however we can't use Ansible to provision it yet because Ansible requires the target machine to have python installed to work and container linux doesn't come with python natively due to its nature of having only components needed to run containers. In order to solve this problem, we have to install `pypy` first, we're able to do it taking advantage of Ansible's `raw` module (module that doesn't require python). Let's create the `playbook.yml`:
 
   ```
   ####################################
@@ -177,122 +215,6 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
 
   ```
   vagrant up
-  ==> master01: Importing base box 'container-linux-v1465.3.0'...
-  ==> master01: Configuring Ignition Config Drive
-  ==> master01: Matching MAC address for NAT networking...
-  ==> master01: Setting the name of the VM: ha-kubernetes-cluster-vagrant_master01_1513847540735_38332
-  ==> master01: Clearing any previously set network interfaces...
-  ==> master01: Preparing network interfaces based on configuration...
-      master01: Adapter 1: nat
-      master01: Adapter 2: hostonly
-  ==> master01: Forwarding ports...
-      master01: 22 (guest) => 2222 (host) (adapter 1)
-  ==> master01: Running 'pre-boot' VM customizations...
-  ==> master01: Booting VM...
-  ==> master01: Waiting for machine to boot. This may take a few minutes...
-      master01: SSH address: 127.0.0.1:2222
-      master01: SSH username: core
-      master01: SSH auth method: private key
-  ==> master01: Machine booted and ready!
-  ==> master01: Setting hostname...
-  ==> master01: Configuring and enabling network interfaces...
-  ==> master02: Importing base box 'container-linux-v1465.3.0'...
-  ==> master02: Configuring Ignition Config Drive
-  ==> master02: Matching MAC address for NAT networking...
-  ==> master02: Setting the name of the VM: ha-kubernetes-cluster-vagrant_master02_1513847561163_9756
-  ==> master02: Fixed port collision for 22 => 2222. Now on port 2203.
-  ==> master02: Clearing any previously set network interfaces...
-  ==> master02: Preparing network interfaces based on configuration...
-      master02: Adapter 1: nat
-      master02: Adapter 2: hostonly
-  ==> master02: Forwarding ports...
-      master02: 22 (guest) => 2203 (host) (adapter 1)
-  ==> master02: Running 'pre-boot' VM customizations...
-  ==> master02: Booting VM...
-  ==> master02: Waiting for machine to boot. This may take a few minutes...
-      master02: SSH address: 127.0.0.1:2203
-      master02: SSH username: core
-      master02: SSH auth method: private key
-      master02: Warning: Remote connection disconnect. Retrying...
-  ==> master02: Machine booted and ready!
-  ==> master02: Setting hostname...
-  ==> master02: Configuring and enabling network interfaces...
-  ==> master03: Importing base box 'container-linux-v1465.3.0'...
-  ==> master03: Configuring Ignition Config Drive
-  ==> master03: Matching MAC address for NAT networking...
-  ==> master03: Setting the name of the VM: ha-kubernetes-cluster-vagrant_master03_1513847581255_67290
-  ==> master03: Fixed port collision for 22 => 2222. Now on port 2204.
-  ==> master03: Clearing any previously set network interfaces...
-  ==> master03: Preparing network interfaces based on configuration...
-      master03: Adapter 1: nat
-      master03: Adapter 2: hostonly
-  ==> master03: Forwarding ports...
-      master03: 22 (guest) => 2204 (host) (adapter 1)
-  ==> master03: Running 'pre-boot' VM customizations...
-  ==> master03: Booting VM...
-  ==> master03: Waiting for machine to boot. This may take a few minutes...
-      master03: SSH address: 127.0.0.1:2204
-      master03: SSH username: core
-      master03: SSH auth method: private key
-  ==> master03: Machine booted and ready!
-  ==> master03: Setting hostname...
-  ==> master03: Configuring and enabling network interfaces...
-  ==> master03: Running provisioner: ansible...
-  Vagrant has automatically selected the compatibility mode '2.0'
-  according to the Ansible version installed (2.3.2.0).
-
-  Alternatively, the compatibility mode can be specified in your Vagrantfile:
-  https://www.vagrantup.com/docs/provisioning/ansible_common.html#compatibility_mode
-
-      master03: Running ansible-playbook...
-
-  PLAY [coreos-pypy] *************************************************************
-
-  TASK [pypy : Check if pypy is installed] ***************************************
-  fatal: [master02]: FAILED! => {"changed": true, "failed": true, "rc": 1, "stderr": "Warning: Permanently added '[127.0.0.1]:2203' (ECDSA) to the list of known hosts.\r\nShared connection to 127.0.0.1 closed.\r\n", "stdout": "stat: cannot stat '/home/core/pypy': No such file or directory\r\n", "stdout_lines": ["stat: cannot stat '/home/core/pypy': No such file or directory"]}
-  ...ignoring
-  fatal: [master01]: FAILED! => {"changed": true, "failed": true, "rc": 1, "stderr": "Warning: Permanently added '[127.0.0.1]:2222' (ECDSA) to the list of known hosts.\r\nShared connection to 127.0.0.1 closed.\r\n", "stdout": "stat: cannot stat '/home/core/pypy': No such file or directory\r\n", "stdout_lines": ["stat: cannot stat '/home/core/pypy': No such file or directory"]}
-  ...ignoring
-  fatal: [master03]: FAILED! => {"changed": true, "failed": true, "rc": 1, "stderr": "Warning: Permanently added '[127.0.0.1]:2204' (ECDSA) to the list of known hosts.\r\nShared connection to 127.0.0.1 closed.\r\n", "stdout": "stat: cannot stat '/home/core/pypy': No such file or directory\r\n", "stdout_lines": ["stat: cannot stat '/home/core/pypy': No such file or directory"]}
-  ...ignoring
-
-  TASK [pypy : Run get-pypy.sh] **************************************************
-  changed: [master01]
-  changed: [master02]
-  changed: [master03]
-
-  TASK [pypy : Check if pip is installed] ****************************************
-  fatal: [master01]: FAILED! => {"changed": false, "cmd": "/home/core/bin/python -m pip --version", "delta": "0:00:00.050451", "end": "2017-12-21 09:13:49.555155", "failed": true, "rc": 1, "start": "2017-12-21 09:13:49.504704", "stderr": "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: No module named pip", "stderr_lines": ["/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: No module named pip"], "stdout": "", "stdout_lines": []}
-  ...ignoring
-  fatal: [master02]: FAILED! => {"changed": false, "cmd": "/home/core/bin/python -m pip --version", "delta": "0:00:00.049796", "end": "2017-12-21 09:13:49.552675", "failed": true, "rc": 1, "start": "2017-12-21 09:13:49.502879", "stderr": "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: No module named pip", "stderr_lines": ["/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: No module named pip"], "stdout": "", "stdout_lines": []}
-  ...ignoring
-  fatal: [master03]: FAILED! => {"changed": false, "cmd": "/home/core/bin/python -m pip --version", "delta": "0:00:00.049563", "end": "2017-12-21 09:13:49.555608", "failed": true, "rc": 1, "start": "2017-12-21 09:13:49.506045", "stderr": "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)\n/home/core/pypy/bin/pypy: No module named pip", "stderr_lines": ["/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libssl.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: /lib64/libcrypto.so.1.0.0: no version information available (required by /home/core/pypy/bin/libpypy-c.so)", "/home/core/pypy/bin/pypy: No module named pip"], "stdout": "", "stdout_lines": []}
-  ...ignoring
-
-  TASK [pypy : Copy get-pip.py] **************************************************
-  changed: [master01]
-  changed: [master03]
-  changed: [master02]
-
-  TASK [pypy : Install pip] ******************************************************
-  changed: [master01]
-  changed: [master02]
-  changed: [master03]
-
-  TASK [pypy : Remove get-pip.py] ************************************************
-  changed: [master01]
-  changed: [master02]
-  changed: [master03]
-
-  TASK [pypy : Install pip launcher] *********************************************
-  changed: [master01]
-  changed: [master02]
-  changed: [master03]
-
-  PLAY RECAP *********************************************************************
-  master01                   : ok=7    changed=6    unreachable=0    failed=0
-  master02                   : ok=7    changed=6    unreachable=0    failed=0
-  master03                   : ok=7    changed=6    unreachable=0    failed=0
   ```
 
-By now we've got three master nodes running with python and pip installed. This makes Ansible usable on CoreOS, we will start to use Ansible to provision components on these masters. In [part2](http://blog.wumuxian1988.com/2018/01/10/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-2/) I'll setup `etcd` and `flannel`.
+By now we've got 3 masters, and 1 worker running on coreos container linux, with python and pip installed. This makes Ansible usable for future provisioning tasks, In [part2](http://blog.wumuxian1988.com/2018/01/10/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-2/) I'll setup `etcd` on the master nodes.
