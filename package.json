@@ -17,7 +17,6 @@
     "url": "https://github.com/WUMUXIAN/blog-wumuxian.git"
   },
   "scripts": {
-    "deploy": "gcloud app deploy",
     "start": "node server.js"
   },
   "engines": {
@@ -25,7 +24,7 @@
     "npm": ">= 1.0.0"
   },
   "dependencies": {
-    "express": "~3.4.4"
+    "express": "~4.16.2"
   },
   "devDependencies": {},
   "bundleDependencies": [],
