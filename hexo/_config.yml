@@ -3,9 +3,9 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: Wu Muxian's Blog
-subtitle: Learn, Think, Share
-description: Some notes along the way of learning and playing around with stuff. Hope that it can help someone getting stuck with the same problem where I used to encounter and also remind myself of what I have done for the time being. Sharing is fun!
+title: "Error: 404 Brain Not Found"
+subtitle: Programming is the art of adding bugs to empty text files
+description: In theory, theory and practice are the same. In practice, they’re not.
 author: Wu Muxian (wumuxian1988@gmail.com)
 language: en
 timezone: Asia/Singapore
@@ -67,14 +67,3 @@ theme: maupassant
 
 # Disqus
 disqus_shortname: wumuxiansblog
-
-# Deployment
-## Docs: https://hexo.io/docs/deployment.html
-deploy:
-  type: rsync
-  host: mosscube.com
-  user: root
-  root: /home/mosscubesite/blog
-  delete: true
-  verbose: true
-  ignore_errors: false

@@ -10,21 +10,19 @@ category:
  - DevOps
 ---
 
-In [part 1](http://blog.wumuxian1988.com/2017/12/21/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-1/) we have created 4 nodes running coreos using Vagrant and installed necessary components on the coreos for Ansible to work. In this part, we're going to configure another key component of Kubernetes cluster:
+In [part 1](http://blog.wumuxian1988.com/2017/12/21/HA-Kubernetes-cluster-with-Vagrant-CoreOS-Ansible-Part-1/) we have created 4 nodes running coreos using Vagrant and installed necessary components on the coreos for Ansible to work. In this part, we're going to configure another key component of Kubernetes cluster: *etcd*
 
-- etcd
-
-#### etcd
+## etcd
 
 `etcd` is a distributed key-value store, which is the heart of a Kubernetes cluster as it holds the state of the cluster. The number one rule of high availability is to protect the data, so we have to cluster etcd to make it redundant and reliable.
 
 The official site [here](https://coreos.com/etcd/docs/latest/op-guide/clustering.html) gives a very detailed instruction of how to setting up a clustered etcd, we just need to convert this into an Ansible role to configure and run etcd on the 3 master nodes.
 
 We want to establish a SSL protected cluster so the first step would be generate the necessary certs and keys. We do it using ruby code inside the VagrantFile, what we need to generate are:
-- Root CA cert and key
-- Server cert and key signed by the root CA
-- Client cert and key signed by the root CA
-- Peer cert and key for each master signed by the root CA.
+- Root CA cert and key for etcd
+- Server cert and key signed by the root etcd CA
+- Client cert and key signed by the root etcd CA
+- Peer cert and key for each master signed by the root etcd CA.
 
 ```ruby
 def signTLS(is_ca:, subject:, issuer_subject:'', issuer_cert:nil, public_key:, ca_private_key:, key_usage:'', extended_key_usage:'', san:'')
@@ -173,6 +171,10 @@ if ARGV[0] == 'up'
   end
 end
 ```
+
+> Tips:
+> 1. Be care with the subject and issuer_subject fields, they have to be consistently.
+> 2. You have to pass in all the domain names and reachable IP addresses for your etcd nodes in the san when generating the server certificate to make the handshaking work properly.
 
 The full content VagrantFile can be found at [here](https://github.com/WUMUXIAN/ha-kubernetes-cluster-vagrant/blob/master/Vagrantfile). Once we have all these in place, we use an Ansible role to setup the etcd cluster
 

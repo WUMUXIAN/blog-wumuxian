@@ -180,7 +180,10 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
 
   ```
 
-  In order to run this, we need to prepare the ignition file in the specified folder.
+  > Tips: We can make the Ansible provisioning in parallel by only start the provisioning when the last machine is up and running and set `ansible.limit = "all"`.
+
+  Now we need to prepare the ignition file in the specified folder.
+
   ```bash
   mkdir provisioning
   cat > node.clc <<EOF
@@ -195,7 +198,8 @@ This post tries to build a Kubernetes cluster from scratch to achieve a minimum 
   ```
 
   This ignition configuration will permanently disable the auto-update and rebooting of the container linux for us.
-  Up to this point we are able to create container linux masters, however we can't use Ansible to provision it yet because Ansible requires the target machine to have python installed to work and container linux doesn't come with python natively due to its nature of having only components needed to run containers. In order to solve this problem, we have to install `pypy` first, we're able to do it taking advantage of Ansible's `raw` module (module that doesn't require python). Let's create the `playbook.yml`:
+
+  Up to this point we are able to create container linux masters, however we can't use Ansible to provision these machines yet because Ansible requires the target machine to have python installed but container linux doesn't come with python natively due to its nature of having only components needed to run containers. In order to solve this problem, we have to install `pypy` first, we're able to do it taking advantage of Ansible's `raw` module (module that doesn't require python). Let's create the `playbook.yml`:
 
   ```
   ####################################

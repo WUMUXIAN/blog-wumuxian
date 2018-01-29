@@ -73,7 +73,8 @@ if !File.directory?("provisioning/roles/kubelet/files/tls")
 end
 ```
 
-The content of the kubeconfig.tmpl is:
+This generates a CA, a client cert and key, and put them into the configuration file. The content of the kubeconfig.tmpl is:
+
 ```
 apiVersion: v1
 kind: Config
@@ -93,11 +94,11 @@ contexts:
     user: kubelet
 ```
 
-This generates a CA, a client cert and key, and put them into the configuration file.
+> Note: You have to keep the subject and issuer_subject consistent.
 
 #### Create kubelet as a service
 
-Create the following template file containing the service definition for kubelet
+To make sure kubelet runs on all nodes and be able to survive system restarts, we make it as a system service and enable it. Create the following template file containing the service definition for kubelet
 
 ```bash
 [Unit]
@@ -105,7 +106,7 @@ Description=Kubelet via Hyperkube ACI
 Wants=systemd-resolved.service
 [Service]
 Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
-  --volume=resolv,kind=host,source=/etc/resolv.conf \
+  --volume resolv,kind=host,source=/etc/resolv.conf \
   --mount volume=resolv,target=/etc/resolv.conf \
   --volume var-lib-cni,kind=host,source=/var/lib/cni \
   --mount volume=var-lib-cni,target=/var/lib/cni \
@@ -142,6 +143,11 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 ```
+
+> Tips:
+> 1. Before starting kubelet, make sure systemd-resolved.service is running already and the resolv.conf on the host is generated.
+> 2. Label the nodes properly to distinguish masters and workers.
+> 3. Taint the masters with 'NoSchedule' so pods will not by default scheduled on master unless tolerations are specified otherwise.
 
 Now we create the task to copy over the files and enable the service:
 
