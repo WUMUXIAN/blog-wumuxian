@@ -1,5 +1,6 @@
 language: node_js
 sudo: required
+if: branch = master
 services:
   - docker
 node_js:
@@ -17,9 +18,11 @@ install:
 jobs:
   include:
     - stage: build and release the image
-      script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-      script: ./build.sh
-      script: ./release.sh
+      before_script:
+        - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      script:
+        - ./build.sh
+        - ./release.sh
     - stage: deploy
       script: ./deploy_dgo.sh
 
