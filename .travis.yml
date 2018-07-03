@@ -5,6 +5,7 @@ services:
 node_js:
   - "9"
 before_install:
+  - echo -e "machine github.com\n  login $CI_USER_TOKEN" > ~/.netrc
   - sudo apt-get -y install software-properties-common
   - sudo apt-get -y install python-pip
   - sudo pip install ansible==2.4.3
@@ -15,10 +16,16 @@ install:
   - cd ..
 jobs:
   include:
-    - stage: build the image
+    - stage: build and release the image
       script: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
       script: ./build.sh
-    - stage: release the image
       script: ./release.sh
     - stage: deploy
       script: ./deploy_dgo.sh
+
+notifications:
+  email:
+    recipients:
+      - wumuxian1988@gmail.com
+    on_success: never # default: change
+    on_failure: always # default: always
