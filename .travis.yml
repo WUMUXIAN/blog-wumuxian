@@ -17,14 +17,13 @@ install:
   - cd ..
 jobs:
   include:
-    - stage: build and release the image
+    - stage: build and release the image      
       before_script:
         - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
       script:
         - ./build.sh
         - ./release.sh
-    - stage: deploy
-      script: ./deploy_dgo.sh
+        - ./deploy_dgo.sh
 
 notifications:
   email:
