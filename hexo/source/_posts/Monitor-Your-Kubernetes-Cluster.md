@@ -63,7 +63,7 @@ You can find a ready-to-go prometheus operator deployment [here](https://github.
 
 In this post, I'll go through the important pieces of the puzzle.
 
-### Node exporter
+### The node_exporter for nodes metrics
 
 Node exporter runs on each node, thus we can deploy them via DaemonSet.
 
@@ -217,9 +217,9 @@ spec:
 
 In the above yaml file, we specified a service account for node exporter and bind it with a cluster role with the permission to create tokenreviews. We then deploy the node exporter pods via DaemonSet and expose a headless service for these pods and specify a **ServiceMonitor**, which will scrape the metrics from the service and send to prometheus.
 
-### kube-state-metrics
+### The kube-state-metrics for Kubernetes Cluster metrics
 
-We can collect Kubernetes cluster metrics via **kube-state-metrics**, which is the new official tool that outputs prometheus format of metrics provided by the Kubernetes community for monitoring purpose. Different from node exporter, we don't need to have
+We can collect Kubernetes cluster metrics via **kube-state-metrics**, which is the new official tool provided by the Kubernetes community that outputs prometheus format of metrics for monitoring purpose. The **kube-state-metrics** talks to kube-api-server to generate metrics about the state of objects, so different from node exporter, we don't run it on every node as DaemonSet, instead we only deploy it as a deployment with 1 replicaset.
 
 ```yaml
 ---
@@ -492,10 +492,200 @@ spec:
       k8s-app: kube-state-metrics
 ```
 
-Give your cluster sometime to create all the required resources and check the status of these pods using kuberctl
+In the above yaml definition, the same as the node exporter, we create roles with the minimum access requirement and bind them to the service account we created specifically for the **kube-state-metrics** service. We will then deploy it via Deployment, expose a headless service and define a ServiceMonitor to scape the metrics and send to Prometheus.
+
+### Scrape containers metrics from kubelet
 
 ```
-kubectl get -n monitoring pods                                                                                                                                                                ✔  10242  17:18:30
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: kubelet
+  name: kubelet
+  namespace: monitoring
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    port: https-metrics
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    honorLabels: true
+    interval: 30s
+    path: /metrics/cadvisor
+    port: https-metrics
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      k8s-app: kubelet
+```
+
+The **kubelet** exports prometheus format metrics at the endpoint **/metrics/cadvisor**. Please note that the kubelet is not self-hosted by Kubernetes, thus there's actually no such service to select by the selector for the ServiceMonitor. Therefore the Prometheus Operator implements a functionality to synchronize the kubelets into an Endpoints object. To make use of that functionality the --kubelet-service argument must be passed to the Prometheus Operator when running it, it will then emulate as it there's a kubelet service running inside the Kubernetes cluster.
+
+```
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: prometheus-operator
+  name: prometheus-operator
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: prometheus-operator
+    spec:
+      containers:
+      - args:
+        - --kubelet-service=kube-system/kubelet
+        - --config-reloader-image=quay.io/coreos/configmap-reload:v0.0.1
+        image: quay.io/coreos/prometheus-operator:v0.17.0
+        name: prometheus-operator
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      serviceAccountName: prometheus-operator
+```
+
+### Monitor other Kubernetes components
+
+Aside from **kubelet**, the other Kubernetes components are self-hosted mostly. Thus to collect metrics from them, we simply need to expose them with a headless service and define ServiceMonitors for them. Please note that for API server, a **kubernetes** service is already exposed in the default namespace, so there is no extra action to take to discover the API server.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-scheduler-prometheus-discovery
+  labels:
+    k8s-app: kube-scheduler
+spec:
+  selector:
+    k8s-app: kube-scheduler
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http-metrics
+    port: 10251
+    targetPort: 10251
+    protocol: TCP
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-controller-manager-prometheus-discovery
+  labels:
+    k8s-app: kube-controller-manager
+spec:
+  selector:
+    k8s-app: kube-controller-manager
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http-metrics
+    port: 10252
+    targetPort: 10252
+    protocol: TCP
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: kube-controller-manager
+  name: kube-controller-manager
+  namespace: monitoring
+spec:
+  endpoints:
+  - interval: 30s
+    port: http-metrics
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      k8s-app: kube-controller-manager
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: kube-scheduler
+  name: kube-scheduler
+  namespace: monitoring
+spec:
+  endpoints:
+  - interval: 30s
+    port: http-metrics
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      k8s-app: kube-scheduler
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: apiserver
+  name: kube-apiserver
+  namespace: monitoring
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    port: https
+    scheme: https
+    tlsConfig:
+      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      serverName: kubernetes
+  jobLabel: component
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      component: apiserver
+      provider: kubernetes
+```
+
+### Metrics for your containerized applications
+
+Up to this point, I think you should already understand how promethus works. In order to monitor a application, you need to export an endpoint at a defined path, using which the ServiceMonitor can scape prometheus format metrics. You will then need to export the service for the application and define a ServiceMonitor to do the scraping job.
+
+## How it looks for Prometheus Operator deployment
+
+After you deploy Prometheus Operator, give the system sometime to create the objects, if you encounter an error for the first, just re-run `kubelet apply` again.
+We can check the status of the deployment by running:
+
+```
+kubectl get -n monitoring pods
+
 NAME                                   READY     STATUS    RESTARTS   AGE
 alertmanager-main-0                    2/2       Running   0          3d
 alertmanager-main-1                    2/2       Running   0          3d
@@ -512,12 +702,24 @@ prometheus-k8s-1                       2/2       Running   1          3d
 prometheus-operator-7dd7b4f478-hvd9s   1/1       Running   0          3d
 ```
 
-## Dashboards
+You should have alertmanager, grafana, node-exporter, promethus and prometheus-operator running as expected.
 
-After your Prometheus cluster is up and running, we can view your cluster/nodes/pods status using **Grafana**, the user name and password is both **admin**.
+## Predefined Dashboards
 
-After you login, we can check different dashboards that were already created and linked with Prometheus data source, you can create new dashboard as well.
+After your Prometheus cluster is up and running, you can notice that a pod of **Grafana** is up and running, the user name and password is both **admin**.
+
+Using datasource from the Prometheus cluster, there are a few pre-defined dashboards already showing your cluster/nodes/pods status.
 
 ![](grafana_default_dashboards.png)
 
 ![](grafana.png)
+
+## Summary
+
+Prometheus Operator provides an easy end-to-end monitoring system for you Kubernetes cluster. It does most of the heavy lift and has a lot of pre-defined metrics for different components, as well the dashboards to visualize the mtrics and the alarms on abnormality. To extend it for monitoring any of your containerized application metrics, as a user, the majority of your work will be:
+
+- Write code using Prometheus SDK in your application to expose your desired metrics via an endpoint.
+- Expose your application with a Service, you can make the Service headless if you don't want it to be accessible from out of the Cluster.
+- Define ServiceMonitor to scape the your metrics from the service.
+- Define Grafana dashboard to visualize your metrics from promethus datasource.
+- Define Alarms for your metrics.
