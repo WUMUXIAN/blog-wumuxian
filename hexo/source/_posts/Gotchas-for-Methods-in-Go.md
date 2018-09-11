@@ -1,8 +1,10 @@
 ---
 title: Gotchas for 'Methods' in Go
 date: 2018-07-10 14:56:58
-tags: Go
-category: Go
+tags:
+ - Go
+category:
+ - Go
 ---
 
 Go is not strictly an object-oriented programming language, however it does have some features that enables you to use it in an object-oriented way, one of them is `Method`. Similar to some object-oriented programming language, where you define "Methods" for your object to specify the behaviours, properties and expose them to external users, in Go you can define functions for any of your types as well, and they are called "Methods" to that type.
@@ -177,7 +179,7 @@ The experiment shows that it's ok to call a method whose `receiver` is a variabl
 > Gotcha 4: If the `receiver` of a method is value type T, it's ok to call this method on pointer argument \*T, because compiler implicitly loads the value of the receiver from the address the pointer points to.
 ```
 given:
-var t \*T
+var t *T
 func (o T) Method(){}
 
 t.Method() is ok
@@ -197,10 +199,10 @@ T{}.Method() is not ok
 tMap["key"].Method() is not ok
 ```
 
-Due to the nature of Go's pass-by-value, there is on more important thing to take note. That is if all the methods of a named type T have a receiver type of T itself (not \*T), it is safe to copy instances of that type; calling any of its methods necessarily makes a copy. For example, time.Duration values are liberally copied, including as arguments to functions. But if any method has a pointer receiver, you should avoid copying instances of T because doing so may violate internal invariants. For example, copy ing an instance of bytes.Buffer would cause the original and the copy to alias the same underlying array of bytes. Subsequent method calls would have unpredictable effects.
+Due to the nature of Go's pass-by-value, there is on more important thing to take note. That is if all the methods of a named type T have a receiver type of T itself (not \*T), it is safe to copy instances of that type; calling any of its methods necessarily makes a copy. For example, time.Duration values are liberally copied, including as arguments to functions. But if any method has a pointer receiver, you should avoid copying instances of T because doing so may violate internal invariants. For example, copying an instance of bytes.Buffer would cause the original and the copy to alias the same underlying array of bytes. Subsequent method calls would have unpredictable effects.
 
-> Gotcha 6: It's not safe to copy instances of a named type T, if T has methods that have pointer receivers as it will have unpredictable effects because the original and the copy will be pointing to the same underlying data.
+> Gotcha 6: It's not safe to copy instances of a named type T, if T has methods that have pointer receivers, as it will have unpredictable effects because the original and the copy will be pointing to the same underlying data.
 
 ### Conclusion
 
-`Methods` are one of the key feature for object-oriented style of programming, in this article we introduced 6 Gotchas regarding the `Methods` of Go for named types which will be very helpful for new Go programmers. If you are new to Go, you might feel some of them strange, however once you get used to it, you'll find it quite nature and easy to understand.
+`Methods` are one of the key feature for object-oriented style of programming, in this article we introduced 6 Gotchas regarding the `Methods` of Go for named types which will be very helpful for new Go programmers.
