@@ -49,6 +49,7 @@ CREATE TABLE `load_test_db`.`event` (
 
 CREATE TABLE `load_test_db`.`sitting_table` (
   `id` char(36) NOT NULL,
+  `event_id` char(36) NOT NULL,
   `name` varchar(45)NOT NULL,
   PRIMARY KEY (`id`));
 
@@ -179,7 +180,47 @@ If we change it to this way, the speed will be even higher:
 
 I completed the insertion of 5 million records in 85 seconds, which yells a ~70000 inserts/s. I think this is pretty much what we can do, to further improve the performance, we will need to use a SSD instead of HDD. Once having the chance I'll do the test.
 
-## Inserting 15 million records into sitting_table table.
-We already know the insertion performance and how to optimize in the previous section. How when comes to the tables, there are two things that I am interested in:
-- How big is the difference between with/without foreign key constraint during insertion.
-- Is the speed consistent, in other words, does the time required for insertions increase linearly when the total number of records to insert increase.
+### Inserting 15 million records into sitting_table table.
+We already know the insertion performance and how to optimize in the previous section. There are two things that I am interested in:
+1. How fast is insert ... select from ...
+2. How big is the difference between with/without foreign key constraint during insertion.
+3. Is the speed consistent, in other words, does the time required for insertions increase linearly when the total number of records to insert increase.
+
+#### Inserting using select from.
+```sql
+drop procedure insert_sitting_tables;
+delimiter #
+create procedure insert_sitting_tables()
+begin
+  truncate table sitting_table;
+  insert into sitting_table(id, event_id, name) select uuid(), id as event_id, random_bytes(45) as name from event;
+end #
+
+delimiter ;
+call insert_sitting_tables();
+
+select count(1) from sitting_table;
+```
+This gives up about ~48000 inserts/s, it's quite good performance, which answers question 1 in a way. Now to answer question 3, let's insert 3 tables per event instead of one:
+```sql
+begin
+  truncate table sitting_table;
+  insert into sitting_table(id, event_id, name) select uuid(), id as event_id, random_bytes(45) as name from event;
+  insert into sitting_table(id, event_id, name) select uuid(), id as event_id, random_bytes(45) as name from event;
+  insert into sitting_table(id, event_id, name) select uuid(), id as event_id, random_bytes(45) as name from event;
+end #
+```
+The result yells to the same ~48000 inserts/s, which indicates that the time needed to insert is quite linear as the number of records to insert increases.
+
+#### Inserting with/without indexes and foreign key checks.
+To compare, let's now add index and foreign key constraint for the sitting_table, as it has a one-to-many relationship with event table.
+```sql
+ALTER TABLE `load_test_db`.`sitting_table`
+ADD INDEX `idx_event_id` (`event_id` ASC);
+ALTER TABLE `load_test_db`.`sitting_table`
+ADD CONSTRAINT `fk_sitting_table_event_id`
+  FOREIGN KEY (`event_id`)
+  REFERENCES `load_test_db`.`event` (`id`)
+  ON DELETE NO ACTION
+  ON UPDATE NO ACTION;
+```
