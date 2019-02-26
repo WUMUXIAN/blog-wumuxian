@@ -60,7 +60,7 @@ CREATE TABLE `load_test_db`.`registrant` (
 
 ```
 
-### Inserting 5 million events
+### Inserting 5 million records into event table
 
 #### Inserting one by one.
 ```sql
@@ -72,17 +72,10 @@ declare v_max int unsigned default 5000000;
 declare v_counter int unsigned default 0;
 
   truncate table event;
-  -- start transaction;
   while v_counter < v_max do
     insert `event`(id, name) values (uuid(), random_bytes(45));
-    -- we make a commit for every 50 inserts
---     if v_counter % 50 = 0 then
--- 		commit;
---         start transaction;
--- 	end if;
     set v_counter=v_counter+1;
   end while;
---   commit;
 end #
 
 delimiter ;
@@ -185,3 +178,8 @@ If we change it to this way, the speed will be even higher:
 ![inserting speed with real bulk insertion and server configured](inserting_speed_4.png)
 
 I completed the insertion of 5 million records in 85 seconds, which yells a ~70000 inserts/s. I think this is pretty much what we can do, to further improve the performance, we will need to use a SSD instead of HDD. Once having the chance I'll do the test.
+
+## Inserting 15 million records into sitting_table table.
+We already know the insertion performance and how to optimize in the previous section. How when comes to the tables, there are two things that I am interested in:
+- How big is the difference between with/without foreign key constraint during insertion.
+- Is the speed consistent, in other words, does the time required for insertions increase linearly when the total number of records to insert increase.
