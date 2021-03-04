@@ -1,0 +1,19 @@
+---
+
+- name: deploy traefik
+  hosts: all
+  gather_facts: yes
+  remote_user: root
+  become: true
+  become_method: sudo
+  tasks:
+    - name: copy over the configuration file
+      copy:
+        src: traefik.yml
+        dest: "traefik.yml"
+        force: true
+    - name: run traefik.yml
+      command: "docker run --restart always -d -p 8080:8080 -p 80:80 --name traefik \
+                  -v $PWD/traefik.yml:/etc/traefik/traefik.yml \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  traefik:v2.0"

@@ -1,0 +1,11 @@
+## traefik.yml
+
+# Docker configuration backend
+providers:
+  docker:
+    defaultRule: "Host(`{{ trimPrefix `/` .Name }}.wumuxian1988.com`)"
+    exposedByDefault: false
+
+# API and dashboard configuration
+api:
+  insecure: true
