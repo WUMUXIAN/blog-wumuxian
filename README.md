@@ -21,7 +21,9 @@ Once you have installed hexo-cli, you are able to create new posts.
 ```bash
 npm install
 cd hexo
-LIBSASS_EXT="no" npm install
+npm install
+# audit fix if prompt
+npm audit fix
 ```
 
 ### Run server locally.
